@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="sr-Latn-ME">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Makroekonomski simulator Crne Gore — Fidelity Consulting</title>
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --ink-soft:#555;
+    --ink-faint:#8a8a8a;
+    --rule:#d8d4cc;
+    --rule-faint:#ebe8e1;
+    --paper:#faf8f3;
+    --panel:#f3f0e8;
+    --accent:#7a1f1f;      /* prigušena crvena — boja samo za smisao */
+    --good:#2f5d3a;        /* prigušena zelena */
+    --bad:#9c2a2a;
+    --warn:#8a6d1f;
+    --bar:#3a3632;
+    --bar-soft:#cfcabf;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:Georgia,'Times New Roman',serif;
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:960px;margin:0 auto;padding:48px 28px 80px;}
+
+  /* ---- Tipografija / zaglavlje ---- */
+  header{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:6px;}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:18px;}
+  .brand-mark{width:38px;height:38px;flex:0 0 auto;}
+  .brand-txt{display:flex;flex-direction:column;line-height:1.25;font-family:'Helvetica Neue',Arial,sans-serif;}
+  .brand-name{font-size:15px;font-weight:bold;letter-spacing:.12em;color:var(--accent);}
+  .brand-tag{font-size:11px;color:var(--ink-faint);letter-spacing:.02em;}
+  h1{font-size:27px;font-weight:normal;letter-spacing:.01em;margin:0 0 4px;}
+  .sub{font-size:14px;color:var(--ink-soft);font-style:italic;margin:0;}
+  .meta-line{font-size:12.5px;color:var(--ink-faint);margin-top:10px;
+    font-family:'Helvetica Neue',Arial,sans-serif;}
+
+  h2{font-size:13px;font-weight:bold;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--ink-soft);font-family:'Helvetica Neue',Arial,sans-serif;
+    margin:38px 0 14px;padding-bottom:5px;border-bottom:1px solid var(--rule);}
+
+  /* ---- Tabla pokazatelja (Tufte: tabela > grafikon za tačne vrijednosti) ---- */
+  table.dash{width:100%;border-collapse:collapse;font-family:'Helvetica Neue',Arial,sans-serif;}
+  table.dash th{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--ink-faint);text-align:left;padding:6px 10px;border-bottom:1px solid var(--rule);}
+  table.dash th.num{text-align:right;}
+  table.dash td{padding:7px 10px;border-bottom:1px solid var(--rule-faint);font-size:14px;vertical-align:middle;}
+  table.dash td.label{color:var(--ink-soft);}
+  table.dash td.val{text-align:right;font-weight:bold;font-variant-numeric:tabular-nums;font-size:15px;}
+  table.dash td.base{text-align:right;color:var(--ink-faint);font-variant-numeric:tabular-nums;font-size:13px;}
+  /* sparkbar — jedan red ink-a, range-frame logika */
+  .spark{display:inline-block;width:120px;height:9px;position:relative;vertical-align:middle;}
+  .spark .axis{position:absolute;top:0;bottom:0;width:1px;background:var(--ink-faint);}
+  .spark .fill{position:absolute;top:2px;height:5px;background:var(--bar);}
+
+  /* ---- Klizači ---- */
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:20px 36px;}
+  @media(max-width:680px){.controls{grid-template-columns:1fr;}}
+  .ctrl{font-family:'Helvetica Neue',Arial,sans-serif;}
+  .ctrl .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;}
+  .ctrl label{font-size:13px;color:var(--ink-soft);}
+  .ctrl .v{font-size:14px;font-weight:bold;font-variant-numeric:tabular-nums;}
+  .ctrl .v.changed{color:var(--accent);}
+  input[type=range]{width:100%;height:18px;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;margin:0;}
+  input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--rule);}
+  input[type=range]::-moz-range-track{height:2px;background:var(--rule);}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:13px;height:13px;border-radius:50%;background:var(--ink);margin-top:-6px;}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border:none;border-radius:50%;background:var(--ink);}
+  .ctrl .base-tick{font-size:11px;color:var(--ink-faint);margin-top:1px;}
+
+  /* ---- Upozorenje ---- */
+  #warn{display:none;font-family:'Helvetica Neue',Arial,sans-serif;font-size:13.5px;
+    padding:11px 15px;border-left:3px solid var(--warn);background:#f6f1e2;margin:24px 0 0;}
+  #warn.bad{border-left-color:var(--bad);background:#f6ebe9;}
+
+  /* ---- Dugmad ---- */
+  .actions{margin-top:34px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+    font-family:'Helvetica Neue',Arial,sans-serif;}
+  button{font-family:'Helvetica Neue',Arial,sans-serif;font-size:14px;cursor:pointer;}
+  button.primary{background:var(--ink);color:var(--paper);border:none;padding:11px 22px;letter-spacing:.03em;}
+  button.primary:hover{background:#000;}
+  button.ghost{background:transparent;border:1px solid var(--rule);color:var(--ink-soft);padding:10px 16px;}
+  button.ghost:hover{border-color:var(--ink-soft);}
+  .actions .hint{font-size:12.5px;color:var(--ink-faint);font-style:italic;}
+
+  /* ---- Analiza ---- */
+  #analysis{display:none;margin-top:30px;border-top:2px solid var(--ink);padding-top:22px;}
+  #analysis h3{font-size:20px;font-weight:normal;margin:0 0 4px;}
+  #analysis .dek{font-size:13.5px;color:var(--ink-soft);font-style:italic;margin:0 0 20px;}
+  #analysis .measures{font-size:14.5px;margin:0 0 22px;padding:12px 16px;background:var(--panel);border-left:3px solid var(--ink-soft);}
+  table.eff{width:100%;border-collapse:collapse;margin:0 0 24px;font-family:'Helvetica Neue',Arial,sans-serif;}
+  table.eff th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);text-align:left;padding:5px 8px;border-bottom:1px solid var(--rule);}
+  table.eff th.num{text-align:right;}
+  table.eff td{padding:6px 8px;border-bottom:1px solid var(--rule-faint);font-size:13.5px;}
+  table.eff td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:bold;}
+  .up{color:var(--bad);} .down{color:var(--good);}
+  .up.good{color:var(--good);} .down.bad{color:var(--bad);}
+  #analysis .interp{font-size:15px;line-height:1.62;}
+  #analysis .interp p{margin:0 0 13px;}
+  #analysis .interp .lead{font-weight:bold;font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);margin:22px 0 10px;}
+  #analysis .flag{font-size:14px;padding:9px 14px;border-left:3px solid var(--warn);background:#f6f1e2;margin:0 0 9px;}
+  .verdict{margin-top:24px;padding:14px 18px;border:1px solid var(--ink);font-family:'Helvetica Neue',Arial,sans-serif;}
+  .verdict .vl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);}
+  .verdict .vt{font-size:16px;font-weight:bold;margin-top:3px;}
+
+  footer{margin-top:48px;border-top:1px solid var(--rule);padding-top:16px;
+    font-family:'Helvetica Neue',Arial,sans-serif;font-size:11.5px;color:var(--ink-faint);line-height:1.55;}
+  .ft-brand{display:flex;align-items:flex-start;gap:11px;margin-top:18px;padding-top:14px;border-top:1px solid var(--rule-faint);}
+  .ft-mark{width:34px;height:34px;flex:0 0 auto;}
+  .ft-name{font-size:12.5px;font-weight:bold;letter-spacing:.08em;color:var(--accent);}
+  .copybtn{margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="19" fill="none" stroke="var(--accent)" stroke-width="2"/>
+        <text x="20" y="28" text-anchor="middle" font-family="Georgia,serif" font-size="24" font-style="italic" fill="var(--accent)">&#934;</text>
+      </svg>
+      <div class="brand-txt">
+        <span class="brand-name">FIDELITY CONSULTING</span>
+        <span class="brand-tag">Forenzička finansijska i ekonomska analiza · Podgorica</span>
+      </div>
+    </div>
+    <h1>Makroekonomski simulator Crne Gore</h1>
+    <p class="sub">Međuzavisnost makroekonomskih pokazatelja u eurizovanoj ekonomiji · polazno stanje 31. decembar 2025.</p>
+    <p class="meta-line">Pomjeranjem jednog instrumenta ostali pokazatelji reaguju lančano. Dugme „Analiziraj mjere" daje pisanu interpretaciju.</p>
+  </header>
+
+  <div id="warn"></div>
+
+  <h2>Pokazatelji — trenutno stanje naspram 31.12.2025.</h2>
+  <table class="dash">
+    <thead>
+      <tr><th>Pokazatelj</th><th class="num">31.12.2025.</th><th class="num">Sada</th><th>Pomak</th></tr>
+    </thead>
+    <tbody id="dash-body"></tbody>
+  </table>
+
+  <h2>Profil ekonomije — radar</h2>
+  <p style="font-size:13px;color:var(--ink-soft);font-style:italic;margin:-6px 0 14px;">Svaka osa skalirana na „zdravlje": veći radijus = bolje stanje, bez obzira na pokazatelj. Gdje se kontura skuplja ka centru, tu je slabost. Tanka kontura = 31.12.2025, puna = trenutno stanje.</p>
+  <div style="display:flex;justify-content:center;">
+    <svg id="radar" viewBox="0 0 560 400" width="100%" style="max-width:560px;" role="img" aria-label="Radar grafikon makroekonomskih pokazatelja"></svg>
+  </div>
+
+  <h2>Instrumenti politike i spoljni šokovi</h2>
+  <div class="controls" id="ctrl-policy"></div>
+
+  <h2>Ishodi — možeš i ručno gurnuti za eksperiment</h2>
+  <div class="controls" id="ctrl-out"></div>
+
+  <div class="actions">
+    <button class="primary" id="analyze">Analiziraj mjere</button>
+    <button class="ghost" id="reset">Vrati na 31.12.2025.</button>
+    <span class="hint">Interpretacija nastaje iz pravila modela — bez internet veze, uvijek ista za isto stanje.</span>
+  </div>
+
+  <div id="analysis"></div>
+
+  <footer>
+    <b>Izvori polaznih vrijednosti (31.12.2025).</b>
+    Rast BDP-a 2,7% i deficit budžeta 4,3% BDP-a (Svjetska banka, Redovni ekonomski izvještaj za Zapadni Balkan, april 2026). Javni dug 63,5% BDP-a (5,18 mlrd EUR) i preliminarni deficit 3,96% (Ministarstvo finansija). SDI ~6,5% BDP-a. Inflacija 4,0% (MONSTAT, decembar 2025). Nezaposlenost po Anketi o radnoj snazi ~10,5% (MONSTAT, Q3 2025). Deficit tekućeg računa ~18,5% BDP-a (Svjetska banka). Porez na dobit — efektivnih 12% (zakonska progresivna skala 9/12/15%). PDV opšta stopa 21%. ECB depozitna stopa ~2%.
+    <br><br>
+    <b>Napomena o deficitu.</b> Dvije čitke postoje: Svjetska banka navodi 4,3% BDP-a, dok preliminarni podaci Ministarstva finansija daju 3,96%. Po metodologiji EU procjenjuje se da bi deficit bio oko 4,2%, a dug i do 75% BDP-a. Polazno stanje koristi SB čitku (4,3%). Oba pokazatelja — i deficit (>3%) i dug (>60%) — probijaju i mastrihtske kriterijume i domaći Zakon o budžetu i fiskalnoj odgovornosti.
+    <br><br>
+    <b>Metodološka ograda.</b> Koeficijenti veza su ekspertski kalibrisani elasticiteti („stylized facts"), a ne regresione ocjene iz crnogorskih vremenskih serija. Model je komparativno-statički: prikazuje novu ravnotežu, ne putanju do nje ni vremenske docnje. Namjena je edukativna i ilustrativna — za razumijevanje smjera i reda veličine međuzavisnosti, ne za zvanično prognoziranje.
+    <br><br>
+    <div class="ft-brand">
+      <svg class="ft-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="19" fill="none" stroke="var(--accent)" stroke-width="2"/>
+        <text x="20" y="28" text-anchor="middle" font-family="Georgia,serif" font-size="24" font-style="italic" fill="var(--accent)">&#934;</text>
+      </svg>
+      <div>
+        <span class="ft-name">FIDELITY CONSULTING d.o.o.</span><br>
+        Podgorica, Crna Gora · Izvršni direktor: Miloš Vuković<br>
+        Izrađeno za platforme STEGA i Tendering.me · Dizajn po načelima E. Tuftea (maksimalan data-ink, boja samo za smisao).
+      </div>
+    </div>
+    <div class="copybtn"><button class="ghost" id="copy">Kopiraj analizu kao tekst</button></div>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Polazno stanje 31.12.2025. ----------
+  var base = {
+    tax:12.0, vat:21.0, gov:3.0, ecb:2.0, comp:0.0,
+    gdp:2.7, unemp:10.5, infl:4.0, wage:5.0, fdi:6.5, debt:63.5, cad:18.5, bbal:-4.3
+  };
+  var NAIRU=11.0, POT=3.0, INFL_EXP=2.5;
+
+  var meta = {
+    tax:  {label:"Porez na dobit (efekt.)", unit:"%", min:5, max:25, step:0.5, grp:"policy"},
+    vat:  {label:"PDV (opšta stopa)", unit:"%", min:7, max:27, step:0.5, grp:"policy"},
+    gov:  {label:"Rast javne potrošnje", unit:"%", min:-6, max:12, step:0.5, grp:"policy", signed:true},
+    ecb:  {label:"ECB kamatna stopa", unit:"%", min:0, max:6, step:0.25, grp:"policy"},
+    comp: {label:"Šok konkurentnosti (REER)", unit:"%", min:-10, max:10, step:0.5, grp:"policy", signed:true},
+    gdp:  {label:"Rast BDP-a", unit:"%", min:-5, max:9, step:0.1, grp:"out", signed:true, betterUp:true},
+    unemp:{label:"Nezaposlenost (ARS)", unit:"%", min:5, max:30, step:0.1, grp:"out"},
+    infl: {label:"Inflacija", unit:"%", min:-2, max:18, step:0.1, grp:"out"},
+    wage: {label:"Rast plata", unit:"%", min:-3, max:16, step:0.1, grp:"out", signed:true, betterUp:true},
+    fdi:  {label:"Strane investicije (SDI)", unit:"% BDP", min:0, max:16, step:0.1, grp:"out", betterUp:true},
+    debt: {label:"Javni dug", unit:"% BDP", min:25, max:120, step:0.5, grp:"out"},
+    cad:  {label:"Deficit tekućeg računa", unit:"% BDP", min:5, max:30, step:0.1, grp:"out"},
+    bbal: {label:"Saldo budžeta", unit:"% BDP", min:-10, max:4, step:0.1, grp:"out", signed:true, betterUp:true}
+  };
+  var dashOrder = ["gdp","unemp","infl","wage","fdi","debt","cad","bbal"];
+  var policyOrder = ["tax","vat","gov","ecb","comp"];
+
+  var v = Object.assign({}, base);
+
+  // Radar: za svaku osu — vrijednost koja znači "loše" (radijus 0) i "dobro" (radijus 1).
+  // Tako veći radijus UVIJEK znači zdravije, bez obzira da li je rast pokazatelja dobar ili loš.
+  var radarAxes = [
+    {k:"gdp",   full:["Rast BDP-a"],                bad:-2,  good:6},
+    {k:"unemp", full:["Nezaposlenost"],             bad:25,  good:5},
+    {k:"infl",  full:["Inflacija"],                 bad:12,  good:2},
+    {k:"wage",  full:["Rast plata"],                bad:-2,  good:8},
+    {k:"fdi",   full:["Strane","investicije"],      bad:0,   good:12},
+    {k:"bbal",  full:["Saldo","budžeta"],           bad:-8,  good:1},
+    {k:"debt",  full:["Javni dug"],                 bad:90,  good:40},
+    {k:"cad",   full:["Deficit","tekućeg računa"],  bad:28,  good:8}
+  ];
+  function health(ax,val){
+    var f=(val-ax.bad)/(ax.good-ax.bad);
+    return Math.max(0,Math.min(1,f));
+  }
+
+  function clamp(x,k){ return Math.max(meta[k].min, Math.min(meta[k].max, x)); }
+
+  // ---------- Model ----------
+  function recompute(driver){
+    var dTax=v.tax-base.tax, dVat=v.vat-base.vat, dGov=v.gov-base.gov, dEcb=v.ecb-base.ecb, dComp=v.comp-base.comp;
+
+    if(driver!=="gdp")
+      v.gdp = clamp(base.gdp - 0.12*dTax - 0.08*dVat + 0.5*dGov - 0.35*dEcb + 0.18*dComp + 0.25*(v.fdi-base.fdi), "gdp");
+    var gap = v.gdp - POT;
+
+    if(driver!=="unemp")
+      v.unemp = clamp(NAIRU - 0.50*gap + 0.05*dTax, "unemp");
+    var dUn = v.unemp - NAIRU;
+
+    // PLATE: vode ih ISKLJUČIVO tržište rada (nezaposlenost) i fiskalni impuls (rast minimalca/javnih plata).
+    // Namjerno NE zavise ni direktno ni indirektno od inflacije — realne plate, ne indeksacija cijena.
+    if(driver!=="wage")
+      v.wage = clamp(base.wage - 0.65*dUn + 0.35*dGov, "wage");
+    var dWage = v.wage - base.wage;
+
+    // INFLACIJA: troškovni pritisak plata (wage-push) + PDV (cost-push) + jaz tražnje + uvozni/kursni kanal.
+    // Smjer je plate -> cijene, ne obrnuto. ECB i konkurentnost hlade.
+    if(driver!=="infl")
+      v.infl = clamp(INFL_EXP + 0.40*dWage + 0.45*dVat + 0.25*gap - 0.20*dEcb - 0.25*dComp, "infl");
+
+    if(driver!=="fdi")
+      v.fdi = clamp(base.fdi - 0.30*dTax + 0.45*(v.gdp-base.gdp) - 0.12*(v.infl-base.infl) - 0.25*dEcb + 0.10*dComp, "fdi");
+
+    // Saldo budžeta (negativan = deficit): rast i porezi pune kasu, potrošnja i nezaposlenost je prazne
+    if(driver!=="bbal")
+      v.bbal = clamp(base.bbal + 0.45*(v.gdp-base.gdp) + 0.30*dTax + 0.35*dVat - 0.70*dGov - 0.30*(v.unemp-base.unemp), "bbal");
+
+    if(driver!=="debt"){
+      // Dug se kreće s deficitom (akumulacija) + snowball (kamata vs rast/inflacija)
+      var deficitDoprinos = -0.9*(v.bbal-base.bbal);
+      var snowball = (1.0 + 0.6*dEcb - (v.gdp-base.gdp) - (v.infl-base.infl)) * (base.debt/100);
+      v.debt = clamp(base.debt + deficitDoprinos - 1.0*(v.gdp-base.gdp) - 0.4*dVat + snowball*0.5, "debt");
+    }
+
+    if(driver!=="cad")
+      v.cad = clamp(base.cad + 0.7*(v.gdp-base.gdp) + 0.5*dGov - 0.6*dComp + 0.3*(v.wage-base.wage) - 0.2*dVat, "cad");
+  }
+
+  // ---------- Format ----------
+  function num(k){ var m=meta[k]; return (m.step<1 ? v[k].toFixed(1) : (Math.round(v[k]*2)/2).toString()); }
+  function signNum(x,d){ d=(d==null?1:d); return (x>0?"+":"")+x.toFixed(d); }
+
+  // ---------- Render: tabla ----------
+  function buildDash(){
+    var b=document.getElementById("dash-body"), html="";
+    dashOrder.forEach(function(k){
+      html+='<tr>'+
+        '<td class="label">'+meta[k].label+'</td>'+
+        '<td class="base">'+(meta[k].signed?signNum(base[k]):base[k].toFixed(1))+'</td>'+
+        '<td class="val" id="d-val-'+k+'"></td>'+
+        '<td><span class="spark" id="d-spark-'+k+'"><span class="axis"></span><span class="fill" id="d-fill-'+k+'"></span></span> <span id="d-delta-'+k+'" style="font-variant-numeric:tabular-nums;font-size:12px;"></span></td>'+
+      '</tr>';
+    });
+    b.innerHTML=html;
+  }
+  function renderDash(){
+    dashOrder.forEach(function(k){
+      var m=meta[k], d=v[k]-base[k];
+      document.getElementById("d-val-"+k).textContent = num(k)+" "+m.unit;
+      // sparkbar: range +-(pola opsega oko baze), nula u sredini
+      var span=(m.max-m.min)*0.5;
+      var frac=Math.max(-1,Math.min(1, d/span));
+      var fill=document.getElementById("d-fill-"+k);
+      var W=120, mid=W/2;
+      var axis=document.getElementById("d-spark-"+k).querySelector(".axis");
+      axis.style.left=mid+"px";
+      if(frac>=0){ fill.style.left=mid+"px"; fill.style.width=(frac*mid)+"px"; }
+      else { fill.style.left=(mid+frac*mid)+"px"; fill.style.width=(-frac*mid)+"px"; }
+      var betterUp=!!m.betterUp;
+      var good = (d>0)===betterUp;
+      fill.style.background = Math.abs(d)<0.05 ? "var(--bar-soft)" : (good?"var(--good)":"var(--bad)");
+      var del=document.getElementById("d-delta-"+k);
+      del.textContent = Math.abs(d)<0.05 ? "—" : signNum(d);
+      del.style.color = Math.abs(d)<0.05 ? "var(--ink-faint)" : (good?"var(--good)":"var(--bad)");
+    });
+  }
+
+  // ---------- Render: klizači ----------
+  function buildCtrls(){
+    function make(container, keys){
+      var html="";
+      keys.forEach(function(k){
+        var m=meta[k];
+        html+='<div class="ctrl">'+
+          '<div class="top"><label>'+m.label+'</label><span class="v" id="c-val-'+k+'"></span></div>'+
+          '<input type="range" id="c-'+k+'" min="'+m.min+'" max="'+m.max+'" step="'+m.step+'">'+
+          '<div class="base-tick">polazno: '+(m.signed?signNum(base[k]):base[k].toFixed(1))+m.unit+'</div>'+
+        '</div>';
+      });
+      document.getElementById(container).innerHTML=html;
+    }
+    make("ctrl-policy", policyOrder);
+    make("ctrl-out", dashOrder);
+  }
+  function renderCtrls(){
+    Object.keys(meta).forEach(function(k){
+      var m=meta[k], el=document.getElementById("c-"+k), val=document.getElementById("c-val-"+k);
+      if(!el) return;
+      el.value=v[k];
+      var disp=(m.signed?signNum(v[k]):num(k))+m.unit;
+      val.textContent=disp;
+      if(Math.abs(v[k]-base[k])>=(m.step/2)) val.classList.add("changed"); else val.classList.remove("changed");
+    });
+  }
+
+  // ---------- Upozorenja konzistentnosti ----------
+  function consistency(){
+    var w=document.getElementById("warn");
+    if(v.gdp>5 && v.unemp<9 && v.infl<2){
+      w.className=""; w.style.display="block";
+      w.innerHTML='<b>Ekonomski nekonzistentno.</b> Jak rast, niska nezaposlenost i niska inflacija istovremeno — zategnuto tržište rada gura plate, a plate cijene (wage-push). Pregrijana eurizovana privreda nema svoju kamatu da se ohladi; pritisak se prelijeva na cijene i platni bilans. (Lijepo zvuči u predizbornoj brošuri, ali ekonomija ne čita brošure.)';
+    } else if(v.gdp<0 && v.infl>6){
+      w.className="bad"; w.style.display="block";
+      w.innerHTML='<b>Stagflacija.</b> Pad outputa uz visoku inflaciju. Bez monetarne politike jedini izlaz je interna devalvacija — bolan pad realnih plata i troškova. Nema dugmeta za štampanje.';
+    } else { w.style.display="none"; }
+  }
+
+  // ---------- Motor analize (profesionalno + prstohvat satire) ----------
+  function analyze(){
+    var box=document.getElementById("analysis");
+    var dTax=v.tax-base.tax, dVat=v.vat-base.vat, dGov=v.gov-base.gov, dEcb=v.ecb-base.ecb, dComp=v.comp-base.comp;
+
+    var measures=[];
+    if(Math.abs(dTax)>=0.5) measures.push("porez na dobit "+(dTax>0?"povećan":"smanjen")+" za "+Math.abs(dTax).toFixed(1)+" p.p. (na "+v.tax.toFixed(1)+"%)");
+    if(Math.abs(dVat)>=0.5) measures.push("PDV "+(dVat>0?"povećan":"smanjen")+" za "+Math.abs(dVat).toFixed(1)+" p.p. (na "+v.vat.toFixed(1)+"%)");
+    if(Math.abs(dGov)>=0.5) measures.push("rast javne potrošnje postavljen na "+signNum(v.gov)+"%");
+    if(Math.abs(dEcb)>=0.25) measures.push("ECB stopa "+(dEcb>0?"viša":"niža")+" za "+Math.abs(dEcb).toFixed(2)+" p.p. (na "+v.ecb.toFixed(2)+"%, spoljni šok)");
+    if(Math.abs(dComp)>=0.5) measures.push("konkurentnost "+(dComp>0?"poboljšana":"pogoršana")+" za "+Math.abs(dComp).toFixed(1)+"% (REER)");
+
+    if(measures.length===0){
+      box.style.display="block";
+      box.innerHTML='<h3>Nije preduzeta nijedna mjera</h3>'+
+        '<p class="dek">Svi instrumenti počivaju tačno na nivou od 31.12.2025.</p>'+
+        '<p class="interp">Model nema šta da analizira — što je, priznajmo, najjeftiniji policy-miks na svijetu: ne dirati ništa i nadati se najboljem. Pomjerite neki klizač u sekciji „Instrumenti politike" pa ponovite.</p>';
+      if(box.scrollIntoView) box.scrollIntoView({behavior:"smooth",block:"start"});
+      return;
+    }
+
+    var d={gdp:v.gdp-base.gdp,unemp:v.unemp-base.unemp,infl:v.infl-base.infl,wage:v.wage-base.wage,fdi:v.fdi-base.fdi,debt:v.debt-base.debt,cad:v.cad-base.cad,bbal:v.bbal-base.bbal};
+
+    var html='<h3>Analiza preduzetih mjera</h3>';
+    html+='<p class="dek">Procjena u odnosu na polazno stanje od 31. decembra 2025. Smjer i red veličine, ne zvanična prognoza.</p>';
+    html+='<div class="measures"><b>Preduzeto:</b> '+measures.join("; ")+'.</div>';
+
+    // tabela efekata
+    html+='<table class="eff"><thead><tr><th>Pokazatelj</th><th class="num">Pomak</th><th>Smjer</th></tr></thead><tbody>';
+    var rows=[["Rast BDP-a",d.gdp,"%","gdp"],["Nezaposlenost",d.unemp,"p.p.","unemp"],["Inflacija",d.infl,"p.p.","infl"],
+              ["Rast plata",d.wage,"p.p.","wage"],["SDI",d.fdi,"p.p. BDP","fdi"],["Saldo budžeta",d.bbal,"p.p. BDP","bbal"],
+              ["Javni dug",d.debt,"p.p. BDP","debt"],["Deficit tek. računa",d.cad,"p.p. BDP","cad"]];
+    rows.forEach(function(r){
+      if(Math.abs(r[1])<0.05) return;
+      var betterUp=!!meta[r[3]].betterUp;
+      var good=(r[1]>0)===betterUp;
+      var dir=r[1]>0?"up":"down";
+      var arrow=r[1]>0?"▲":"▼";
+      html+='<tr><td>'+r[0]+'</td>'+
+        '<td class="num '+dir+(good?' good':' bad')+'">'+signNum(r[1])+' '+r[2]+'</td>'+
+        '<td class="'+dir+(good?' good':' bad')+'">'+arrow+' '+(good?"povoljno":"nepovoljno")+'</td></tr>';
+    });
+    html+='</tbody></table>';
+
+    // interpretacija po mjeri
+    var notes=[];
+    if(dTax>0.5) notes.push("Viši porez na dobit puni budžet i pritiska dug naniže, ali šalje stranom kapitalu jasnu poruku da potraži susjede — Crna Gora se na regionalnom tržištu prodaje upravo niskim porezom. Poluga koja djeluje moćno dok ne primijetite da je SDI u međuvremenu spakovao kofere.");
+    if(dTax<-0.5) notes.push("Niži porez na dobit privlači investicije i podstiče rast, po Lafferovoj logici; cijena je trenutni manjak prihoda dok se poreska baza ne proširi. Kladiti se na to da hoće — i da hoće na vrijeme — više je pitanje vjere nego računovodstva.");
+    if(dVat>0.5) notes.push("PDV je najizdašnija poluga u kasi i najefikasnije obara dug, ali se naplaćuje direktno na rafu u prodavnici. Inflatorni udar je trenutan i regresivan: najviše ga osjete oni kojima cijena hljeba nije statistička kategorija nego budžetska stavka.");
+    if(dVat<-0.5) notes.push("Niži PDV hladi inflaciju i olakšava potrošačima, ali probija budžet jer je riječ o glavnom prihodu države. Popularna mjera s neprijatnim računom koji stiže tiho, mjesec-dva kasnije.");
+    if(dGov>0.5) notes.push("Veća javna potrošnja kratkoročno gura rast i zaposlenost preko multiplikatora — i istovremeno širi i dug i deficit tekućeg računa. Prepoznatljiv obrazac standard-danas-račun-sjutra: birač pamti povišicu, a kamatu plaća sljedeći mandat (po mogućnosti tuđi).");
+    if(dGov<-0.5) notes.push("Rezanje javne potrošnje liječi i dug i spoljnu neravnotežu, ali koči rast i diže nezaposlenost. Zdrava, odgovorna i otprilike jednako popularna kao i posjeta zubaru — neophodna, a niko se ne javlja dobrovoljno.");
+    if(dEcb>0.25) notes.push("Viša ECB stopa je čist uvozni šok: Podgorica je ne bira, samo je trpi. Kredit poskupljuje, rast usporava, a dug — preko snowball efekta — raste sam od sebe, bez ijedne domaće pogrešne odluke. Suština eurizacije: monetarnu sudbinu kreiraju u Frankfurtu, a posljedice se mjere u Podgorici.");
+    if(dEcb<-0.25) notes.push("Niža ECB stopa je vjetar u leđa koji ništa ne košta: jeftiniji kredit, lakše servisiranje duga, podsticaj investicijama. Jedini problem je što se na poklon iz Frankfurta ne može graditi politika — danas duva, sjutra stane, a niko ne pita Podgoricu.");
+    if(dComp>0.5) notes.push("Poboljšanje konkurentnosti (kroz produktivnost ili internu devalvaciju) jedini je pravi mehanizam prilagođavanja u monetarnoj uniji — popravlja i rast i tekući račun, a inflaciju ne pothranjuje. Manje spektakularno od presijecanja vrpci, ali jedino što zaista radi.");
+    if(dComp<-0.5) notes.push("Pad konkurentnosti u eurizaciji je opasan jer ventil devalvacije kursa ne postoji. Jaz se prelijeva pravo u deficit tekućeg računa i gubitak tržišta — bez kursa da to ublaži, prilagođavanje plaćaju plate i radna mjesta.");
+
+    html+='<div class="interp"><div class="lead">Ekonomska interpretacija</div>';
+    notes.forEach(function(n){ html+='<p>'+n+'</p>'; });
+
+    // crvene lampice
+    var flags=[];
+    if(v.bbal<-3) flags.push("Budžetski deficit ispod -3% BDP-a — probijen i mastrihtski kriterijum i domaći Zakon o budžetu i fiskalnoj odgovornosti. Polazno stanje (-4,3%) već je u prekršaju; svako dalje popuštanje samo produbljuje jaz koji će neka buduća vlada morati da zatvori planom fiskalne konvergencije.");
+    if(v.debt>60 && v.debt<=70) flags.push("Javni dug iznad 60% BDP-a — zakonski prag koji aktivira obavezu silazne putanje duga u srednjem roku. Polaznih 63,5% znači da Crna Gora već duguje EU i sebi plan smanjenja, a ne nova obrazloženja.");
+    if(v.cad>22) flags.push("Deficit tekućeg računa probija 22% BDP-a. U eurizaciji ovo je crvena lampica prvog reda: zemlja troši osjetno više nego što stvara i tu razliku mora pokriti zaduživanjem ili SDI. Glavni strukturni rizik crnogorske ekonomije, a ne fusnota.");
+    if(v.debt>70) flags.push("Javni dug iznad 70% BDP-a. Ulazak u zonu gdje troškovi refinansiranja rastu — naročito neugodno pred dospijeća euroobveznica, kad tržište naplaćuje svaku slabost. (Po metodologiji EU realan dug je već procijenjen i do 75%.)");
+    if(v.unemp<NAIRU-1.5) flags.push("Nezaposlenost duboko ispod prirodne stope. Tržište rada je pregrijano, rezervne radne snage nema, pa su pritisci na plate i cijene matematička izvjesnost, ne mogućnost.");
+    if(v.infl>6) flags.push("Inflacija iznad 6%. Bez monetarne politike jedina kočnica je fiskalna suzdržanost i pad realnih plata — sporo, bolno i bez prečica.");
+    if(flags.length){
+      html+='<div class="lead">Crvene lampice</div>';
+      flags.forEach(function(f){ html+='<div class="flag">'+f+'</div>'; });
+    }
+    html+='</div>';
+
+    // ukupna ocjena
+    var verdict, growthHit=(d.gdp<-0.5);
+    if(d.debt<-2 && d.gdp>=-0.3) verdict="Povoljan policy-miks — dug pada uz očuvan rast. Rijetka kombinacija; uživajte dok traje.";
+    else if(growthHit && d.debt<-1) verdict="Konsolidacija s cijenom — dug se popravlja, rast trpi. Klasičan trade-off bez besplatnog ručka.";
+    else if(d.debt>2 || v.cad>22) verdict="Rizičan smjer — kratkoročna korist, a neravnoteža se tiho akumulira. Račun stiže, samo ne odmah.";
+    else verdict="Umjeren efekat — pomaci postoje, ravnoteža se bitno ne mijenja. Solidno, ako vam je ambicija da ne pogoršate stvar.";
+
+    html+='<div class="verdict"><div class="vl">Ukupna ocjena</div><div class="vt">'+verdict+'</div></div>';
+
+    box.innerHTML=html;
+    box.style.display="block";
+    if(box.scrollIntoView) box.scrollIntoView({behavior:"smooth",block:"start"});
+    window.__lastAnalysisText = box.innerText;
+  }
+
+  // ---------- Kopiranje ----------
+  function copyAnalysis(){
+    var t=window.__lastAnalysisText;
+    if(!t){ alert("Prvo pritisnite dugme Analiziraj mjere."); return; }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){
+        var b=document.getElementById("copy"); var o=b.textContent; b.textContent="Kopirano ✓";
+        setTimeout(function(){b.textContent=o;},1600);
+      });
+    } else {
+      var ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select();
+      try{document.execCommand("copy");}catch(e){} document.body.removeChild(ta);
+      var b=document.getElementById("copy"); var o=b.textContent; b.textContent="Kopirano ✓";
+      setTimeout(function(){b.textContent=o;},1600);
+    }
+  }
+
+  // ---------- Radar ----------
+  var R_CX=280, R_CY=195, R_RAD=130;
+  function radarPoint(i,n,frac){
+    var ang=-Math.PI/2 + (2*Math.PI*i/n);
+    return [R_CX + Math.cos(ang)*R_RAD*frac, R_CY + Math.sin(ang)*R_RAD*frac];
+  }
+  function polyPts(values){
+    return values.map(function(f,i){var p=radarPoint(i,values.length,f);return p[0].toFixed(1)+","+p[1].toFixed(1);}).join(" ");
+  }
+  function buildRadarStatic(){
+    var n=radarAxes.length, svg=document.getElementById("radar"), g="";
+    // koncentrični prstenovi (lagani, Tufte: muted grid)
+    [0.25,0.5,0.75,1].forEach(function(r){
+      var pts=[];
+      for(var i=0;i<n;i++){var p=radarPoint(i,n,r);pts.push(p[0].toFixed(1)+","+p[1].toFixed(1));}
+      g+='<polygon points="'+pts.join(" ")+'" fill="none" stroke="var(--rule-faint)" stroke-width="1"/>';
+    });
+    // ose + labele (puni nazivi, višeredni gdje treba)
+    for(var i=0;i<n;i++){
+      var p=radarPoint(i,n,1);
+      g+='<line x1="'+R_CX+'" y1="'+R_CY+'" x2="'+p[0].toFixed(1)+'" y2="'+p[1].toFixed(1)+'" stroke="var(--rule)" stroke-width="1"/>';
+      var lp=radarPoint(i,n,1.14);
+      var anchor = Math.abs(lp[0]-R_CX)<8 ? "middle" : (lp[0]>R_CX?"start":"end");
+      var lines=radarAxes[i].full, nl=lines.length;
+      // vertikalno centriraj blok labele oko tačke
+      var y0 = lp[1] + 4 - (nl-1)*6;
+      var tx = '<text x="'+lp[0].toFixed(1)+'" y="'+y0.toFixed(1)+'" text-anchor="'+anchor+'" font-family="Helvetica Neue,Arial,sans-serif" font-size="11" fill="var(--ink-soft)">';
+      for(var j=0;j<nl;j++){
+        tx += '<tspan x="'+lp[0].toFixed(1)+'" dy="'+(j===0?0:12)+'">'+lines[j]+'</tspan>';
+      }
+      tx += '</text>';
+      g+=tx;
+    }
+    // placeholder za dvije konture (crtaju se u render)
+    g+='<polygon id="radar-base" points="" fill="none" stroke="var(--ink-faint)" stroke-width="1.3" stroke-dasharray="4 3"/>';
+    g+='<polygon id="radar-now" points="" fill="rgba(122,31,31,0.10)" stroke="var(--accent)" stroke-width="2"/>';
+    // legenda
+    g+='<g font-family="Helvetica Neue,Arial,sans-serif" font-size="10.5" fill="var(--ink-soft)">';
+    g+='<line x1="160" y1="388" x2="180" y2="388" stroke="var(--ink-faint)" stroke-width="1.3" stroke-dasharray="4 3"/><text x="184" y="391.5">31.12.2025.</text>';
+    g+='<line x1="290" y1="388" x2="310" y2="388" stroke="var(--accent)" stroke-width="2"/><text x="314" y="391.5">trenutno stanje</text>';
+    g+='</g>';
+    svg.innerHTML=g;
+  }
+  function renderRadar(){
+    var baseVals=radarAxes.map(function(ax){return health(ax,base[ax.k]);});
+    var nowVals =radarAxes.map(function(ax){return health(ax,v[ax.k]);});
+    var pb=document.getElementById("radar-base"), pn=document.getElementById("radar-now");
+    if(pb) pb.setAttribute("points", polyPts(baseVals));
+    if(pn) pn.setAttribute("points", polyPts(nowVals));
+  }
+
+  // ---------- Init ----------
+  function renderAll(){ renderDash(); renderCtrls(); renderRadar(); consistency(); }
+
+  buildDash(); buildCtrls(); buildRadarStatic();
+  Object.keys(meta).forEach(function(k){
+    var el=document.getElementById("c-"+k); if(!el) return;
+    el.addEventListener("input", function(e){
+      v[k]=parseFloat(e.target.value);
+      recompute(k);
+      renderAll();
+    });
+  });
+  document.getElementById("analyze").addEventListener("click", analyze);
+  document.getElementById("copy").addEventListener("click", copyAnalysis);
+  document.getElementById("reset").addEventListener("click", function(){
+    v=Object.assign({},base);
+    renderAll();
+    document.getElementById("analysis").style.display="none";
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
